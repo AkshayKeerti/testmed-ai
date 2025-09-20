@@ -12,6 +12,7 @@ import logging
 
 from src.rag.vector_store import TrustMedVectorStore
 from src.llm.llm_client import TrustMedLLMClient
+from src.rag.citation_manager import CitationManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class TrustMedRAGPipeline:
     def __init__(self):
         self.llm = OllamaLLM(model="llama3.1:8b")
         self.vector_store = TrustMedVectorStore()
+        self.citation_manager = CitationManager()
         
         # Create prompt template
         self.prompt_template = ChatPromptTemplate.from_messages([
@@ -102,25 +104,18 @@ class TrustMedRAGPipeline:
         
         return "\n\n".join(formatted_context)
     
-    def _extract_sources(self, context: List[Document]) -> List[Dict[str, Any]]:
-        """Extract source information from context"""
-        sources = []
-        for doc in context:
-            source = {
-                "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
-                "metadata": doc.metadata
-            }
-            sources.append(source)
-        return sources
+    def _extract_sources(self, context: List[Document]) -> List[str]:
+        """Extract source information from context using citation manager"""
+        sources = self.citation_manager.extract_sources_from_documents(context)
+        citations = self.citation_manager.format_citations(sources)
+        return citations
     
     def _calculate_confidence(self, context: List[Document]) -> float:
-        """Calculate confidence score based on context quality"""
-        if not context:
-            return 0.5  # Medium confidence without context
-        
-        # Simple confidence calculation
-        # In production, this would be more sophisticated
-        return min(0.9, 0.6 + (len(context) * 0.1))
+        """Calculate confidence score using citation manager"""
+        sources = self.citation_manager.extract_sources_from_documents(context)
+        response_length = sum(len(doc.page_content) for doc in context)
+        confidence = self.citation_manager.calculate_confidence_score(sources, response_length)
+        return confidence
 
 # Test the RAG pipeline
 if __name__ == "__main__":
