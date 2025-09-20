@@ -1,185 +1,176 @@
-"""PubMed API client for fetching medical journal abstracts."""
+"""
+PubMed API Integration for TrustMed AI
+Pulls live medical updates from NEJM, JAMA, and other medical journals
+"""
 
 import requests
 import time
-from typing import List, Dict, Optional
-from urllib.parse import urlencode
-from src.utils.config import PUBMED_EMAIL, MEDICAL_JOURNALS
-from src.utils.logging import logger
+import logging
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
+import xml.etree.ElementTree as ET
+
+logger = logging.getLogger(__name__)
 
 class PubMedClient:
-    """Client for interacting with PubMed E-utilities API."""
+    """Client for PubMed API to fetch medical journal abstracts"""
     
-    BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+    def __init__(self):
+        self.base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+        self.rate_limit_delay = 0.5  # Respect PubMed rate limits
+        logger.info("PubMed client initialized")
     
-    def __init__(self, email: str = PUBMED_EMAIL):
-        self.email = email
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'TrustMedAI/1.0 (Educational Project)',
-            'Email': email
-        })
-    
-    def search_articles(self, 
-                       journal: str, 
-                       max_results: int = 100,
-                       days_back: int = 7) -> List[str]:
-        """
-        Search for articles from a specific journal.
-        
-        Args:
-            journal: Journal name to search
-            max_results: Maximum number of results to return
-            days_back: Number of days back to search
-            
-        Returns:
-            List of PubMed IDs
-        """
+    def search_articles(self, query: str, max_results: int = 100, days_back: int = 7) -> List[str]:
+        """Search for articles and return PMIDs"""
         try:
-            # Build search query
-            query = f'"{journal}"[Journal] AND ("{days_back}"[PDAT] : "3000"[PDAT])'
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
             
+            # Format query with date range
+            date_query = f"{query} AND ({start_date.strftime('%Y/%m/%d')}[Date - Publication] : {end_date.strftime('%Y/%m/%d')}[Date - Publication])"
+            
+            # Search for PMIDs
+            search_url = f"{self.base_url}esearch.fcgi"
             params = {
                 'db': 'pubmed',
-                'term': query,
+                'term': date_query,
                 'retmax': max_results,
                 'retmode': 'json',
-                'email': self.email
+                'sort': 'relevance'
             }
             
-            url = f"{self.BASE_URL}/esearch.fcgi"
-            response = self.session.get(url, params=params, timeout=30)
+            response = requests.get(search_url, params=params)
             response.raise_for_status()
             
             data = response.json()
             pmids = data.get('esearchresult', {}).get('idlist', [])
             
-            logger.info(f"Found {len(pmids)} articles for {journal}")
+            logger.info(f"Found {len(pmids)} articles for query: {query}")
             return pmids
             
         except Exception as e:
-            logger.error(f"Error searching articles for {journal}: {e}")
+            logger.error(f"Error searching PubMed: {e}")
             return []
     
-    def get_article_details(self, pmid: str) -> Optional[Dict]:
-        """
-        Get detailed information for a specific article.
-        
-        Args:
-            pmid: PubMed ID
-            
-        Returns:
-            Dictionary with article details or None if error
-        """
+    def get_article_details(self, pmid: str) -> Optional[Dict[str, Any]]:
+        """Get detailed article information"""
         try:
-            # Get summary
-            summary_params = {
+            # Fetch article details
+            fetch_url = f"{self.base_url}efetch.fcgi"
+            params = {
                 'db': 'pubmed',
                 'id': pmid,
-                'retmode': 'json',
-                'email': self.email
+                'retmode': 'xml'
             }
             
-            summary_url = f"{self.BASE_URL}/esummary.fcgi"
-            summary_response = self.session.get(summary_url, params=summary_params, timeout=30)
-            summary_response.raise_for_status()
-            summary_data = summary_response.json()
+            response = requests.get(fetch_url, params=params)
+            response.raise_for_status()
             
-            # Get abstract
-            abstract_params = {
-                'db': 'pubmed',
-                'id': pmid,
-                'retmode': 'xml',
-                'email': self.email
-            }
+            # Parse XML response
+            root = ET.fromstring(response.content)
             
-            abstract_url = f"{self.BASE_URL}/efetch.fcgi"
-            abstract_response = self.session.get(abstract_url, params=abstract_params, timeout=30)
-            abstract_response.raise_for_status()
+            # Extract article information
+            article_info = self._parse_article_xml(root)
             
-            # Parse XML for abstract (simplified)
-            abstract_text = self._extract_abstract_from_xml(abstract_response.text)
+            # Rate limiting
+            time.sleep(self.rate_limit_delay)
             
-            # Extract summary data
-            result = summary_data.get('result', {}).get(pmid, {})
-            
-            article_data = {
-                'pmid': pmid,
-                'title': result.get('title', ''),
-                'authors': result.get('authors', []),
-                'journal': result.get('source', ''),
-                'pub_date': result.get('pubdate', ''),
-                'abstract': abstract_text,
-                'url': f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-                'source_type': 'journal',
-                'date_added': time.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            
-            logger.debug(f"Retrieved article details for PMID {pmid}")
-            return article_data
+            return article_info
             
         except Exception as e:
-            logger.error(f"Error getting article details for PMID {pmid}: {e}")
+            logger.error(f"Error fetching article {pmid}: {e}")
             return None
     
-    def _extract_abstract_from_xml(self, xml_content: str) -> str:
-        """Extract abstract text from PubMed XML response."""
+    def _parse_article_xml(self, root: ET.Element) -> Dict[str, Any]:
+        """Parse PubMed XML response"""
         try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(xml_content, 'xml')
-            abstract_elem = soup.find('AbstractText')
-            return abstract_elem.get_text() if abstract_elem else ""
-        except Exception as e:
-            logger.error(f"Error extracting abstract from XML: {e}")
-            return ""
-    
-    def fetch_recent_articles(self, max_per_journal: int = 50) -> List[Dict]:
-        """
-        Fetch recent articles from all tracked medical journals.
-        
-        Args:
-            max_per_journal: Maximum articles per journal
+            # Find article element
+            article = root.find('.//PubmedArticle')
+            if article is None:
+                return {}
             
-        Returns:
-            List of article dictionaries
-        """
+            # Extract basic information
+            title_elem = article.find('.//ArticleTitle')
+            title = title_elem.text if title_elem is not None else "Unknown Title"
+            
+            abstract_elem = article.find('.//AbstractText')
+            abstract = abstract_elem.text if abstract_elem is not None else "No abstract available"
+            
+            # Extract authors
+            authors = []
+            author_list = article.find('.//AuthorList')
+            if author_list is not None:
+                for author in author_list.findall('.//Author'):
+                    last_name = author.find('LastName')
+                    first_name = author.find('ForeName')
+                    if last_name is not None and first_name is not None:
+                        authors.append(f"{first_name.text} {last_name.text}")
+            
+            # Extract journal information
+            journal_elem = article.find('.//Journal/Title')
+            journal = journal_elem.text if journal_elem is not None else "Unknown Journal"
+            
+            # Extract publication date
+            pub_date = article.find('.//PubDate')
+            year = "2024"  # Default
+            if pub_date is not None:
+                year_elem = pub_date.find('Year')
+                if year_elem is not None:
+                    year = year_elem.text
+            
+            # Extract PMID
+            pmid_elem = article.find('.//PMID')
+            pmid = pmid_elem.text if pmid_elem is not None else "Unknown PMID"
+            
+            return {
+                "pmid": pmid,
+                "title": title,
+                "abstract": abstract,
+                "authors": authors,
+                "journal": journal,
+                "year": year,
+                "source": "PubMed",
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error parsing article XML: {e}")
+            return {}
+    
+    def fetch_recent_medical_articles(self, conditions: List[str], days_back: int = 7) -> List[Dict[str, Any]]:
+        """Fetch recent articles for specific medical conditions"""
         all_articles = []
         
-        for journal in MEDICAL_JOURNALS:
-            logger.info(f"Fetching articles from {journal}")
+        for condition in conditions:
+            logger.info(f"Fetching articles for: {condition}")
             
             # Search for articles
-            pmids = self.search_articles(journal, max_per_journal)
+            pmids = self.search_articles(condition, max_results=50, days_back=days_back)
             
-            # Get details for each article
-            for pmid in pmids:
+            # Get article details
+            for pmid in pmids[:20]:  # Limit to 20 per condition
                 article = self.get_article_details(pmid)
                 if article:
+                    article["condition"] = condition
                     all_articles.append(article)
-                
-                # Rate limiting - PubMed requires delays
-                time.sleep(0.5)
             
-            # Delay between journals
+            # Rate limiting between conditions
             time.sleep(2)
         
-        logger.info(f"Total articles fetched: {len(all_articles)}")
+        logger.info(f"Fetched {len(all_articles)} total articles")
         return all_articles
 
-def main():
-    """Test the PubMed client."""
+# Test the PubMed client
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    
     client = PubMedClient()
     
-    # Test with a small sample
-    articles = client.fetch_recent_articles(max_per_journal=5)
+    # Test with common medical conditions
+    test_conditions = ["diabetes", "hypertension", "cancer", "depression", "asthma"]
+    articles = client.fetch_recent_medical_articles(test_conditions, days_back=30)
     
-    for article in articles[:3]:  # Show first 3
-        print(f"Title: {article['title']}")
-        print(f"Journal: {article['journal']}")
-        print(f"PMID: {article['pmid']}")
-        print(f"Abstract: {article['abstract'][:200]}...")
-        print("-" * 50)
-
-if __name__ == "__main__":
-    main()
-
+    print(f"\nFetched {len(articles)} articles:")
+    for article in articles[:5]:  # Show first 5
+        print(f"- {article['title'][:80]}... ({article['journal']}, {article['year']})")
