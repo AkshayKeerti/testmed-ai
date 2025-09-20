@@ -1,116 +1,137 @@
-"""Complete RAG pipeline for conversational medical agent."""
+"""
+RAG Pipeline for TrustMed AI
+Retrieval-Augmented Generation with medical knowledge
+"""
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from typing import List, Dict, Any, Optional
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_ollama import OllamaLLM
+import logging
 
-from src.rag.query_processor import QueryProcessor
-from src.rag.context_retriever import ContextRetriever
-from src.rag.answer_generator import AnswerGenerator
-from typing import Dict, Any
+from src.rag.vector_store import TrustMedVectorStore
+from src.llm.llm_client import TrustMedLLMClient
 
-class RAGPipeline:
-    """Complete RAG pipeline for medical queries."""
+logger = logging.getLogger(__name__)
+
+class TrustMedRAGPipeline:
+    """RAG Pipeline for medical conversations"""
     
     def __init__(self):
-        self.query_processor = QueryProcessor()
-        self.context_retriever = ContextRetriever()
-        self.answer_generator = AnswerGenerator()
-    
-    def process_query(self, user_query: str) -> Dict[str, Any]:
-        """Process user query through complete RAG pipeline."""
-        # Step 1: Process query
-        processed_query = self.query_processor.process_query(user_query)
+        self.llm = OllamaLLM(model="llama3.1:8b")
+        self.vector_store = TrustMedVectorStore()
         
-        # Step 2: Retrieve context
-        context = self.context_retriever.retrieve_context(processed_query)
-        
-        # Step 3: Generate answer
-        answer_data = self.answer_generator.generate_answer(processed_query, context)
-        
-        # Step 4: Combine response
-        response = {
-            'query': user_query,
-            'answer': answer_data['answer'],
-            'citations': answer_data['citations'],
-            'confidence_score': answer_data['confidence_score'],
-            'disclaimer': answer_data['disclaimer'],
-            'sources': {
-                'evidence_based': len(context['evidence_sources']),
-                'community_based': len(context['community_sources']),
-                'total_sources': len(context['evidence_sources']) + len(context['community_sources'])
-            },
-            'medical_facts': context['medical_facts']
-        }
-        
-        return response
-    
-    def get_conversation_summary(self, responses: list) -> Dict[str, Any]:
-        """Get summary of conversation."""
-        if not responses:
-            return {'total_queries': 0, 'topics': [], 'confidence_avg': 0.0}
-        
-        topics = []
-        confidence_scores = []
-        
-        for response in responses:
-            # Extract condition from query
-            condition = response.get('query', '').lower()
-            if 'diabetes' in condition:
-                topics.append('Diabetes')
-            elif 'hypertension' in condition or 'blood pressure' in condition:
-                topics.append('Hypertension')
-            elif 'heart' in condition:
-                topics.append('Heart Disease')
-            else:
-                topics.append('General Medical')
+        # Create prompt template
+        self.prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """You are TrustMed AI, a medical information assistant. 
+            Use the provided context to answer medical questions accurately and safely.
+            Always cite your sources and remind users to consult healthcare professionals.
             
-            confidence_scores.append(response.get('confidence_score', 0.0))
+            Context: {context}
+            
+            Guidelines:
+            - Provide evidence-based medical information
+            - Always include disclaimers about consulting healthcare professionals
+            - Cite sources when available
+            - Be clear about limitations of AI medical advice"""),
+            ("human", "{question}")
+        ])
         
-        return {
-            'total_queries': len(responses),
-            'topics': list(set(topics)),
-            'confidence_avg': sum(confidence_scores) / len(confidence_scores),
-            'total_sources_used': sum(r.get('sources', {}).get('total_sources', 0) for r in responses)
-        }
+        # Create chain
+        self.chain = self.prompt_template | self.llm | StrOutputParser()
+        
+        logger.info("RAG Pipeline initialized")
+    
+    def retrieve_context(self, query: str, k: int = 5) -> List[Document]:
+        """Retrieve relevant context for query"""
+        try:
+            # For now, return empty list since we don't have a populated vector store
+            # In production, this would search the vector store
+            logger.info(f"Retrieving context for query: {query}")
+            return []
+        except Exception as e:
+            logger.error(f"Error retrieving context: {e}")
+            return []
+    
+    def generate_response(self, query: str, context: List[Document] = None) -> Dict[str, Any]:
+        """Generate response using RAG"""
+        try:
+            # Retrieve context if not provided
+            if context is None:
+                context = self.retrieve_context(query)
+            
+            # Format context
+            context_text = self._format_context(context)
+            
+            # Generate response
+            response = self.chain.invoke({
+                "context": context_text,
+                "question": query
+            })
+            
+            # Extract sources
+            sources = self._extract_sources(context)
+            
+            return {
+                "answer": response,
+                "sources": sources,
+                "confidence": self._calculate_confidence(context),
+                "context_used": len(context) > 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating response: {e}")
+            return {
+                "answer": "I apologize, but I'm having trouble processing your request right now.",
+                "sources": [],
+                "confidence": 0.0,
+                "context_used": False
+            }
+    
+    def _format_context(self, context: List[Document]) -> str:
+        """Format context documents for prompt"""
+        if not context:
+            return "No specific medical context available. Please provide general medical information."
+        
+        formatted_context = []
+        for i, doc in enumerate(context, 1):
+            formatted_context.append(f"Source {i}: {doc.page_content}")
+            if doc.metadata:
+                formatted_context.append(f"Metadata: {doc.metadata}")
+        
+        return "\n\n".join(formatted_context)
+    
+    def _extract_sources(self, context: List[Document]) -> List[Dict[str, Any]]:
+        """Extract source information from context"""
+        sources = []
+        for doc in context:
+            source = {
+                "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                "metadata": doc.metadata
+            }
+            sources.append(source)
+        return sources
+    
+    def _calculate_confidence(self, context: List[Document]) -> float:
+        """Calculate confidence score based on context quality"""
+        if not context:
+            return 0.5  # Medium confidence without context
+        
+        # Simple confidence calculation
+        # In production, this would be more sophisticated
+        return min(0.9, 0.6 + (len(context) * 0.1))
 
-def main():
-    """Test complete RAG pipeline."""
-    pipeline = RAGPipeline()
-    
-    test_queries = [
-        "What are the symptoms of diabetes?",
-        "What causes high blood pressure?",
-        "How do you treat migraines?"
-    ]
-    
-    print("🚀 Testing Complete RAG Pipeline")
-    print("=" * 40)
-    
-    responses = []
-    
-    for query in test_queries:
-        print(f"\n🔍 Query: {query}")
-        response = pipeline.process_query(query)
-        
-        print(f"✅ Answer: {response['answer']}")
-        print(f"📊 Confidence: {response['confidence_score']:.2f}")
-        print(f"📚 Sources: {response['sources']['total_sources']} total")
-        print(f"   - Evidence-based: {response['sources']['evidence_based']}")
-        print(f"   - Community-based: {response['sources']['community_based']}")
-        
-        responses.append(response)
-    
-    # Test conversation summary
-    print(f"\n📈 Conversation Summary:")
-    summary = pipeline.get_conversation_summary(responses)
-    print(f"   Total queries: {summary['total_queries']}")
-    print(f"   Topics covered: {summary['topics']}")
-    print(f"   Average confidence: {summary['confidence_avg']:.2f}")
-    print(f"   Total sources used: {summary['total_sources_used']}")
-    
-    print(f"\n🎯 Phase C RAG Pipeline: COMPLETE!")
-    print("Ready for Phase D: UI and System Integration")
-
+# Test the RAG pipeline
 if __name__ == "__main__":
-    main()
+    rag = TrustMedRAGPipeline()
+    
+    # Test query
+    query = "What are the symptoms of diabetes?"
+    response = rag.generate_response(query)
+    
+    print(f"Query: {query}")
+    print(f"Answer: {response['answer']}")
+    print(f"Sources: {len(response['sources'])}")
+    print(f"Confidence: {response['confidence']}")
+    print(f"Context Used: {response['context_used']}")

@@ -12,6 +12,7 @@ import json
 from typing import List, Dict, Any
 
 from src.llm.llm_client import TrustMedLLMClient
+from src.rag.rag_pipeline import TrustMedRAGPipeline
 from src.api.models import ChatMessage, ChatResponse, HealthResponse
 from src.api.auth import AuthManager
 from src.api.websocket_manager import WebSocketManager
@@ -22,17 +23,19 @@ logger = logging.getLogger(__name__)
 
 # Global instances
 llm_client = None
+rag_pipeline = None
 auth_manager = None
 websocket_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
-    global llm_client, auth_manager, websocket_manager
+    global llm_client, rag_pipeline, auth_manager, websocket_manager
     
     # Startup
     logger.info("Starting TrustMed AI Backend...")
     llm_client = TrustMedLLMClient()
+    rag_pipeline = TrustMedRAGPipeline()
     auth_manager = AuthManager()
     websocket_manager = WebSocketManager()
     
@@ -73,18 +76,18 @@ async def health_check():
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(message: ChatMessage):
-    """REST API chat endpoint"""
+    """REST API chat endpoint with RAG"""
     try:
-        if not llm_client:
-            raise HTTPException(status_code=503, detail="LLM client not initialized")
+        if not rag_pipeline:
+            raise HTTPException(status_code=503, detail="RAG pipeline not initialized")
         
-        # Generate response
-        response_text = llm_client.generate_response(message.content)
+        # Generate response using RAG
+        rag_response = rag_pipeline.generate_response(message.content)
         
         return ChatResponse(
-            message=response_text,
-            sources=[],
-            confidence=0.8,
+            message=rag_response["answer"],
+            sources=rag_response["sources"],
+            confidence=rag_response["confidence"],
             timestamp=message.timestamp
         )
         
@@ -106,15 +109,15 @@ async def websocket_endpoint(websocket: WebSocket):
             if message_data.get("type") == "chat":
                 user_message = message_data.get("message", "")
                 
-                # Generate response
-                response = llm_client.generate_response(user_message)
+                # Generate response using RAG
+                rag_response = rag_pipeline.generate_response(user_message)
                 
                 # Send response
                 await websocket_manager.send_message(websocket, {
                     "type": "response",
-                    "message": response,
-                    "sources": [],
-                    "confidence": 0.8
+                    "message": rag_response["answer"],
+                    "sources": rag_response["sources"],
+                    "confidence": rag_response["confidence"]
                 })
                 
     except WebSocketDisconnect:
