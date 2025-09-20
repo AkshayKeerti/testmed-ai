@@ -15,10 +15,10 @@ class RedditClient:
     """Client for Reddit API to fetch medical community insights"""
     
     def __init__(self):
-        # Reddit API credentials (using public access)
+        # Reddit API credentials
         self.reddit = praw.Reddit(
-            client_id="your_client_id",  # Replace with actual credentials
-            client_secret="your_client_secret",  # Replace with actual credentials
+            client_id="3ESRSsoqAveiawdaopM1LA",
+            client_secret="i0-s-DYtc6UsNXOoNecW15JVvG-4Qw",
             user_agent="TrustMedAI/1.0"
         )
         
@@ -193,13 +193,19 @@ class RedditClient:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     
-    # Note: This will fail without proper Reddit API credentials
-    print("Reddit API integration requires proper credentials.")
-    print("To test this, you need to:")
-    print("1. Create a Reddit app at https://www.reddit.com/prefs/apps")
-    print("2. Get client_id and client_secret")
-    print("3. Update the RedditClient initialization")
+    client = RedditClient()
     
-    # client = RedditClient()
-    # insights = client.get_condition_insights("diabetes")
-    # print(f"Insights: {insights}")
+    # Test with a common condition
+    test_condition = "diabetes"
+    insights = client.get_condition_insights(test_condition)
+    
+    print(f"\nReddit insights for {test_condition}:")
+    print(f"Total posts: {insights.get('total_posts', 0)}")
+    print(f"Subreddits: {insights.get('subreddits', [])}")
+    print(f"Common themes: {insights.get('common_themes', [])}")
+    print(f"Patient experiences: {len(insights.get('patient_experiences', []))}")
+    print(f"Questions: {len(insights.get('questions', []))}")
+    
+    if insights.get('patient_experiences'):
+        print(f"\nSample patient experience:")
+        print(f"{insights['patient_experiences'][0][:100]}...")
