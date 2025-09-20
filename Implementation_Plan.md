@@ -1,53 +1,56 @@
-# TrustMed AI - Detailed Implementation Plan
+# TrustMed AI - Detailed Implementation Plan v2.0
 
-## Phase A: Data Ingestion Foundation (Weeks 1-2)
+## Phase A: Conversational AI Foundation (Weeks 1-2)
 
-### Week 1: Core API Integration
+### Week 1: Core LLM Integration
 
-#### Day 1-2: PubMed API Setup
+#### Day 1-2: Ollama Setup & LLM Integration
 ```python
 # Key components to implement:
-- PubMed E-utilities API client
-- Journal-specific query functions (NEJM, JAMA)
-- Abstract parsing and metadata extraction
-- Rate limiting and error handling
+- Ollama installation and configuration
+- Llama 3.3 model deployment
+- Langchain LLM wrapper integration
+- Basic conversation testing
 ```
 
 **Technical Steps:**
-1. Register for PubMed API access
-2. Implement `pubmed_client.py` with search functions
-3. Create journal-specific query builders
-4. Build abstract parser with metadata extraction
-5. Add caching mechanism for API responses
+1. Install Ollama locally
+2. Download and configure Llama 3.3 model
+3. Implement `llm_client.py` with Langchain integration
+4. Create basic conversation interface
+5. Test LLM response quality and speed
 
-#### Day 3-4: UMLS Integration
+#### Day 3-4: FastAPI Backend Setup
 ```python
 # Key components to implement:
-- UMLS API authentication
-- Terminology mapping functions
-- CUI (Concept Unique Identifier) lookup
-- RxNorm drug name standardization
+- FastAPI application structure
+- WebSocket endpoints for real-time chat
+- JWT authentication system
+- API documentation with Swagger
 ```
 
 **Technical Steps:**
-1. Register for UMLS API key
-2. Implement `umls_client.py` with authentication
-3. Create terminology mapping functions
-4. Build drug name normalization using RxNorm
-5. Implement caching for UMLS responses
+1. Create FastAPI project structure
+2. Implement WebSocket chat endpoints
+3. Add JWT authentication middleware
+4. Create API documentation
+5. Test API endpoints and WebSocket connections
 
-#### Day 5-7: Web Scraping Foundation
-```python
-# Key components to implement:
-- Playwright setup and configuration
-- Robots.txt compliance checker
-- Rate limiting and respectful scraping
-- Basic HTML parsing framework
+#### Day 5-7: Next.js Frontend Foundation
+```typescript
+// Key components to implement:
+- Next.js 14 project setup
+- TypeScript configuration
+- Tailwind CSS styling
+- WebSocket client integration
 ```
 
 **Technical Steps:**
-1. Install and configure Playwright
-2. Implement `scraper_base.py` with common functionality
+1. Initialize Next.js project with TypeScript
+2. Configure Tailwind CSS and shadcn/ui
+3. Implement WebSocket client for real-time chat
+4. Create responsive chat interface
+5. Add authentication flow
 3. Create robots.txt compliance checker
 4. Build rate limiting system
 5. Implement basic HTML parsing utilities

@@ -1,4 +1,4 @@
-# TrustMed AI - Product Requirements Document (PRD)
+# TrustMed AI - Product Requirements Document (PRD) v2.0
 
 ## 1. Project Overview
 
@@ -9,39 +9,41 @@ TrustMed AI - Conversational Medical Information Agent
 Educational/Fun Project - Personal Learning Initiative
 
 ### 1.3 Core Mission
-Create a conversational agent that pulls updates from trusted medical sources, organizes medical information into structured guides, supports natural-language queries, cites authoritative references, and enhances discussion by blending evidence-based insights with community perspectives.
+Create a **true conversational AI agent** that provides evidence-based medical information through natural language interaction, leveraging modern LLM technology and RAG architecture for accurate, cited medical responses.
 
 ### 1.4 Disclaimer
 **IMPORTANT**: This is a fun educational project. Do not take any medical advice seriously. Always consult licensed healthcare professionals for medical concerns.
+
+### 1.5 Architecture Philosophy
+**Conversational AI First**: Focus on conversation quality, natural language understanding, and intelligent response generation rather than data processing pipelines.
 
 ## 2. Functional Requirements
 
 ### 2.1 Core Features
 
-#### 2.1.1 Data Ingestion System
-- **Medical Journals**: NEJM, JAMA abstracts via PubMed API
-- **Reputable Health Sites**: Mayo Clinic, WebMD disease pages
-- **Community Sources**: Reddit (AskDocs, r/medical), HealthBoards, Mayo Connect
-- **Medical Ontologies**: UMLS/RxNorm for terminology normalization
+#### 2.1.1 Conversational AI Agent
+- **Natural Language Understanding**: Advanced intent recognition and medical terminology processing
+- **Contextual Conversations**: Multi-turn dialogue with memory and context awareness
+- **Intelligent Responses**: Human-like medical information delivery with appropriate disclaimers
+- **Conversation Flow**: Smooth, natural interaction patterns
 
-#### 2.1.2 Data Processing Pipeline
-- **Normalization**: Map symptoms, drugs, side effects using UMLS
-- **Structuring**: Convert to standardized JSON schema
-- **Indexing**: Dual indexing (structured + semantic search)
-- **Storage**: SQLite + Chroma/FAISS vector database
+#### 2.1.2 RAG (Retrieval-Augmented Generation) System
+- **Knowledge Retrieval**: Semantic search through medical knowledge base
+- **Context Integration**: Seamless blending of retrieved information with LLM responses
+- **Citation Generation**: Automatic source attribution and credibility scoring
+- **Response Quality**: Evidence-based answers with confidence indicators
 
-#### 2.1.3 Conversational Agent
-- **Natural Language Queries**: Support medical questions in plain English
-- **RAG Pipeline**: Retrieve relevant structured guides and community discussions
-- **Answer Generation**: Blend evidence-based and community insights
-- **Citation System**: Always provide source URLs and credibility indicators
+#### 2.1.3 Knowledge Base Management
+- **Medical Data Sources**: Curated medical information from authoritative sources
+- **Vector Embeddings**: High-quality semantic representations for retrieval
+- **Structured Storage**: PostgreSQL + PGVector for production-ready data management
+- **Data Quality**: Validated, clean medical information with metadata
 
-#### 2.1.4 User Interface
-- **Chat Interface**: Gradio-based conversational UI
-- **Two-Pane Layout**: 
-  - Left: Chat responses
-  - Right: Evidence sources and community perspectives
-- **Source Transparency**: Clear indication of source types and credibility
+#### 2.1.4 Modern User Interface
+- **Professional Web App**: Next.js-based responsive interface
+- **Real-time Chat**: WebSocket-based conversational interface
+- **Source Transparency**: Clear citation display and source credibility
+- **Mobile Responsive**: Cross-platform accessibility
 
 ### 2.2 Data Schema
 
@@ -65,14 +67,41 @@ Create a conversational agent that pulls updates from trusted medical sources, o
 ## 3. Technical Requirements
 
 ### 3.1 Technology Stack
-- **Language**: Python 3.9+
-- **Web Scraping**: Playwright
-- **APIs**: PubMed E-utilities, UMLS API
-- **Vector Database**: Chroma or FAISS
-- **Relational Database**: SQLite
-- **ML/AI**: Transformers (Flan-T5/Mistral), Sentence-Transformers
-- **UI Framework**: Gradio
-- **Data Processing**: Pandas, BeautifulSoup
+
+#### 3.1.1 Frontend Layer
+- **Framework**: Next.js 14+ with TypeScript
+- **Deployment**: Vercel
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Real-time**: WebSocket connections
+- **Alternative**: Streamlit (for rapid prototyping)
+
+#### 3.1.2 Backend & Model Access
+- **API Framework**: FastAPI with async support
+- **RAG Orchestration**: Langchain
+- **Model Management**: Huggingface Hub
+- **Local LLM**: Ollama
+- **ML Pipeline**: Netflix Metaflow (optional)
+- **Authentication**: JWT tokens
+
+#### 3.1.3 Data & Retrieval Layer
+- **Primary Database**: PostgreSQL 15+
+- **Vector Extension**: PGVector
+- **Vector Database**: Milvus (production) / Weaviate (alternative)
+- **Search Engine**: FAISS for high-performance similarity search
+- **Caching**: Redis
+
+#### 3.1.4 Embeddings & RAG Libraries
+- **RAG Framework**: Langchain
+- **Embeddings**: OpenAI Embeddings / Huggingface models
+- **LLM Integration**: Langchain LLM wrappers
+- **Alternative**: LLMWare, JinaAI, Cognita
+
+#### 3.1.5 Large Language Models
+- **Primary**: Llama 3.3 (via Ollama)
+- **Alternatives**: Mistral, Gemma 2, Qwen, Phi
+- **Deployment**: Local via Ollama
+- **Fallback**: OpenAI API (optional)
 
 ### 3.2 Performance Requirements
 - **Update Frequency**: Weekly data refresh
@@ -260,11 +289,23 @@ Create a conversational agent that pulls updates from trusted medical sources, o
 
 | Phase | Duration | Key Deliverables | Status |
 |-------|----------|------------------|---------|
-| Phase A | 2 weeks | Data ingestion from all sources | ✅ **COMPLETE** |
-| Phase B | 2 weeks | Data processing and storage | ✅ **COMPLETE** |
-| Phase C | 2 weeks | RAG and conversational agent | ✅ **COMPLETE** |
-| Phase D | 2 weeks | UI and system integration | ✅ **COMPLETE** |
-| **Total** | **8 weeks** | **Fully functional TrustMed AI** | ✅ **100% COMPLETE** |
+| Phase A | 2 weeks | Conversational AI Foundation | 🔄 **READY TO START** |
+| Phase B | 2 weeks | Advanced Conversational Features | ⏳ **PENDING** |
+| Phase C | 2 weeks | Production Deployment | ⏳ **PENDING** |
+| **Total** | **6 weeks** | **Production-Ready Conversational AI** | **0% Complete** |
+
+### 9.1 Architecture Revision
+**Previous Implementation (v1.0)**: Data processing pipeline with basic chat interface
+- ❌ Focused on data scraping instead of conversation quality
+- ❌ Used basic tools (Gradio, SQLite, ChromaDB) instead of production stack
+- ❌ Custom RAG implementation with bugs
+- ❌ No proper LLM integration
+
+**New Implementation (v2.0)**: True conversational AI agent
+- ✅ Focus on conversation quality and natural language understanding
+- ✅ Modern tech stack (Next.js, FastAPI, Langchain, Ollama)
+- ✅ Production-ready architecture (PostgreSQL, Redis, Docker)
+- ✅ Real LLM integration (Llama 3.3) for intelligent responses
 
 ## 10. Resource Requirements
 
