@@ -1,0 +1,22 @@
+# PubMed API (No key required - free access)
+PUBMED_EMAIL=your_email@example.com
+
+# UMLS API (Free registration required)
+UMLS_API_KEY=your_umls_api_key_here
+UMLS_USERNAME=your_umls_username
+
+# Reddit API (Optional - for community sources)
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+REDDIT_USER_AGENT=TrustMedAI/1.0
+
+# Database
+DATABASE_URL=sqlite:///trustmed_ai.db
+
+# Vector Database
+CHROMA_PERSIST_DIRECTORY=./data/vectors
+
+# Model Configuration
+MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+LANGUAGE_MODEL=microsoft/DialoGPT-medium
+
