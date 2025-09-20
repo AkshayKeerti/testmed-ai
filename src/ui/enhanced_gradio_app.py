@@ -38,7 +38,7 @@ class EnhancedTrustMedUI:
         # Add to chat manager
         self.chat_manager.add_message(session_id, message, response)
         
-        # Update chat history
+        # Update chat history - use simple tuple format
         history.append([message, response['answer']])
         
         # Create sources display
